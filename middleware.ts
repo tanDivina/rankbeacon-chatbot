@@ -1,59 +1,36 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { guestRegex, isDevelopmentEnvironment } from './lib/constants';
+// middleware.ts
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 
-  /*
-   * Playwright starts the dev server and requires a 200 status to
-   * begin the tests, so this ensures that the tests can start
-   */
-  if (pathname.startsWith('/ping')) {
-    return new Response('pong', { status: 200 });
+export default auth((req) => {
+  const isLoggedIn = !!req.auth;
+  const { pathname } = req.nextUrl;
+
+  // If the user is trying to access a protected route and is not logged in,
+  // redirect them to the login page.
+  if (!isLoggedIn && pathname !== '/login') {
+    return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  if (pathname.startsWith('/api/auth')) {
-    return NextResponse.next();
+  // If the user is logged in and tries to visit the login page,
+  // redirect them to the intake page (or a dashboard later).
+  if (isLoggedIn && pathname === '/login') {
+    return NextResponse.redirect(new URL('/intake', req.url));
   }
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-    secureCookie: !isDevelopmentEnvironment,
-  });
-
-  if (!token) {
-    const redirectUrl = encodeURIComponent(request.url);
-
-    return NextResponse.redirect(
-      new URL(`/api/auth/guest?redirectUrl=${redirectUrl}`, request.url),
-    );
-  }
-
-  const isGuest = guestRegex.test(token?.email ?? '');
-
-  if (token && !isGuest && ['/login', '/register'].includes(pathname)) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
+  // Allow the request to proceed if no redirection is needed
   return NextResponse.next();
-}
+});
 
+// --- THIS IS THE CRUCIAL CHANGE ---
 export const config = {
+  // We are adding the 'runtime' property here.
+  // This forces the middleware to use the Node.js runtime.
+  runtime: 'nodejs',
+  
+  // The matcher configuration stays the same.
   matcher: [
-    '/',
-    '/chat/:id',
-    '/api/:path*',
-    '/login',
-    '/register',
-
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
