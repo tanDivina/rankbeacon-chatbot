@@ -12,22 +12,44 @@ export const {
   signOut,
 } = NextAuth({
   adapter: DrizzleAdapter(db),
+  
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
   ],
+  
   callbacks: {
     async session({ session, user }) {
-      // Add the user ID to the session object
       if (session.user) {
         session.user.id = user.id;
       }
       return session;
     },
   },
+
   pages: {
     signIn: '/login',
+    error: '/login', // Add this - redirects auth errors to login page
+  },
+  
+  // Add cookie configuration to prevent PKCE issues
+  cookies: {
+    pkceCodeVerifier: {
+      name: 'authjs.pkce.code_verifier',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
+  
+  // Add session configuration
+  session: {
+    strategy: 'database',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 });
