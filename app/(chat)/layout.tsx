@@ -2,7 +2,7 @@ import { auth, signOut } from '@/lib/auth';
 import { Providers } from '@/components/providers';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
-import './globals.css';
+import '../globals.css';
 
 const geist = GeistSans;
 const geistMono = GeistMono;
