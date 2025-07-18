@@ -88,3 +88,33 @@ export const verificationTokens = pgTable(
     compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
   })
 );
+// Chat related tables
+export const chat = pgTable('chat', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => user.id),
+  title: text('title'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const message = pgTable('message', {
+  id: text('id').primaryKey(),
+  chatId: text('chat_id').notNull().references(() => chat.id),
+  role: text('role').notNull(), // 'user' or 'assistant'
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const stream = pgTable('stream', {
+  id: text('id').primaryKey(),
+  chatId: text('chat_id').notNull().references(() => chat.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const suggestion = pgTable('suggestion', {
+  id: text('id').primaryKey(),
+  chatId: text('chat_id').notNull().references(() => chat.id),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
