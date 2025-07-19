@@ -2,18 +2,18 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { intakeFlow, IntakeStep } from '@/lib/intake-questions';
+import { intakeFlow } from '@/lib/intake-questions';
 import { Button } from '@/components/ui/button';
 
-// Helper component for the chat bubbles
+// Helper component for the chat bubbles (no changes needed here)
 function ChatBubble({ message, role }: { message: string; role: 'assistant' | 'user' }) {
   const isUser = role === 'user';
   return (
-    <div className={`flex items-end ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex w-full items-end ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`mx-2 max-w-[80%] rounded-lg px-4 py-2 ${
+        className={`mx-2 max-w-[80%] break-words rounded-lg px-4 py-2 ${
           isUser
             ? 'rounded-br-none bg-blue-600 text-white'
             : 'rounded-bl-none bg-gray-200 text-gray-800'
@@ -30,8 +30,10 @@ export function IntakeChat() {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [messages, setMessages] = useState<{ role: 'assistant' | 'user'; text: string }[]>([]);
+  const [inputValue, setInputValue] = useState('');
   const [isComplete, setIsComplete] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when new messages appear
@@ -39,7 +41,7 @@ export function IntakeChat() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isValidating]);
 
   // Start with the first question
   useEffect(() => {
@@ -48,39 +50,111 @@ export function IntakeChat() {
     }
   }, []);
 
-  const handleAnswer = (answer: string) => {
+  // Main handler for user input
+  const handleAnswer = async (answer: string) => {
     const currentQuestion = intakeFlow[currentStep];
-    if (!currentQuestion) return;
+    if (!currentQuestion || isValidating || isSaving) return;
 
-    // Add user's answer to messages
-    setMessages((prev) => [...prev, { role: 'user', text: answer }]);
+    // For simple choice questions, no validation is needed
+    if (currentQuestion.type === 'choice') {
+      setMessages((prev) => [...prev, { role: 'user', text: answer }]);
+      storeAndProceed(answer);
+      return;
+    }
 
-    // Store the answer
+    // For text inputs, call our AI validation API
+    setIsValidating(true);
+    try {
+      const response = await fetch('/api/validate-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: currentQuestion.question,
+          answer: answer,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Validation request failed');
+
+      const { validationResult } = await response.json();
+
+      // If the response doesn't end with a question mark, it's an acknowledgment
+      if (!validationResult.trim().endsWith('?')) {
+        // AI gave a positive acknowledgment! Just show user message and proceed.
+        setMessages((prev) => [
+          ...prev, 
+          { role: 'user', text: answer }
+          // Don't show the "Perfect!", "Great!", etc. - it's just for internal logic
+        ]);
+        setInputValue('');
+        storeAndProceed(answer);
+      } else {
+        // AI returned a follow-up question. Display it.
+        setMessages((prev) => [
+          ...prev,
+          { role: 'user', text: answer },
+          { role: 'assistant', text: validationResult },
+        ]);
+        setInputValue(''); // Clear the input for the user's next attempt
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Sorry, an error occurred. Please try again.');
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  // Helper function to store the answer and continue the flow
+  
+  const storeAndProceed = (answer: string) => {
+    const currentQuestion = intakeFlow[currentStep];
     const newAnswers = { ...answers, [currentQuestion.extractKey]: answer };
     setAnswers(newAnswers);
-
-    // Check if the flow is complete
-    const nextStep = currentStep + 1;
-    if (nextStep >= intakeFlow.length) {
-      setIsComplete(true);
-      saveProfile(newAnswers);
-    } else {
-      // Move to the next question
-      setCurrentStep(nextStep);
+  
+    const reply = currentQuestion.personalizedReplies?.[answer] || currentQuestion.personalizedReplies?.['default'];
+  
+    if (reply) {
+      // First show the personalized reply
       setTimeout(() => {
-        setMessages((prev) => [...prev, { role: 'assistant', text: intakeFlow[nextStep].question }]);
-      }, 500); // Small delay to feel more natural
+        setMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
+        // Then proceed to next question after a delay
+        setTimeout(() => {
+          proceedToNextStep(newAnswers);
+        }, 1500); // Give time to read the personalized reply
+      }, 750);
+    } else {
+      // If no personalized reply, just proceed
+      setTimeout(() => {
+        proceedToNextStep(newAnswers);
+      }, 500);
+    }
+  };
+
+  const proceedToNextStep = (currentAnswers: Record<string, string>) => {
+    const nextStepIndex = currentStep + 1;
+
+    if (nextStepIndex >= intakeFlow.length) {
+      setIsComplete(true);
+      setTimeout(() => saveProfile(currentAnswers), 1000);
+    } else {
+      setCurrentStep(nextStepIndex);
+      setTimeout(() => {
+        setMessages((prev) => [...prev, { role: 'assistant', text: intakeFlow[nextStepIndex].question }]);
+      }, 500);
     }
   };
 
   const saveProfile = async (finalAnswers: Record<string, string>) => {
+    setMessages((prev) => [...prev, { role: 'assistant', text: "Perfect, thank you! Let's get a name for this profile..." }]);
     setIsSaving(true);
     const profileName = window.prompt(
-      'Last step! Give this content profile a name (e.g., "My Tech Blog", "E-commerce Store")',
+      'Last step! Give this content profile a name (e.g., "My Tech Blog")',
       `${finalAnswers.niche} Project`
     );
 
     try {
+      if (!profileName) throw new Error("Profile name cancelled.");
       const response = await fetch('/api/profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,17 +162,20 @@ export function IntakeChat() {
       });
 
       if (!response.ok) throw new Error('Failed to save profile');
-      
       const { profile } = await response.json();
       localStorage.setItem('currentProfileId', profile.id);
-
-    } catch (error) {
-      console.error(error);
-      alert('There was an error saving your profile. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+   // ADD THIS: Redirect to external app after successful save
+    setTimeout(() => {
+      window.location.href = 'https://app.rankbeacon.dev';
+    }, 1500);
+    
+  } catch (error) {
+    console.error(error);
+    alert('There was an error saving your profile. Please try again.');
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const currentQuestion = intakeFlow[currentStep];
 
@@ -108,22 +185,20 @@ export function IntakeChat() {
         {messages.map((msg, index) => (
           <ChatBubble key={index} message={msg.text} role={msg.role} />
         ))}
-        {isSaving && <ChatBubble message="Saving your profile..." role="assistant" />}
+        {isValidating && <ChatBubble message="Hmm, let me see..." role="assistant" />}
       </div>
-      
+
       <div className="border-t p-4">
-        {isComplete ? (
+        {isComplete && !isSaving ? (
           <div className="text-center">
             <h3 className="text-lg font-semibold">✅ All set! Your profile is saved.</h3>
-            <p className="text-muted-foreground mb-4 text-sm">
-              You can now start creating optimized content.
-            </p>
-            <Button onClick={() => router.push('/dashboard')} className="w-full">
-              Go to Dashboard →
+            <p className="text-muted-foreground mb-4 text-sm">You can now start creating optimized content.</p>
+            <Button onClick={() => window.location.href = 'https://app.rankbeacon.dev'} className="w-full">
+              Go to the RankBeacon App →
             </Button>
           </div>
         ) : (
-          <div>
+          <div className={isValidating ? 'pointer-events-none opacity-50' : ''}>
             {currentQuestion?.type === 'choice' && (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {currentQuestion.options?.map((option) => (
@@ -133,25 +208,36 @@ export function IntakeChat() {
                 ))}
               </div>
             )}
-            {currentQuestion?.type === 'text' && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const input = e.currentTarget.elements.namedItem('answer') as HTMLInputElement;
-                  if (input.value.trim()) {
-                    handleAnswer(input.value.trim());
-                    input.value = '';
-                  }
-                }}
-              >
-                <input
-                  name="answer"
-                  type="text"
-                  placeholder="Type your answer here..."
-                  className="w-full rounded-lg border p-2"
-                  autoFocus
-                />
-              </form>
+            {(currentQuestion?.type === 'text' || currentQuestion?.type === 'text-with-suggestions') && (
+              <div>
+                {currentQuestion.type === 'text-with-suggestions' && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {currentQuestion.suggestions?.map((suggestion) => (
+                      <Button key={suggestion} variant="outline" size="sm" className="text-xs" onClick={() => setInputValue(suggestion)}>
+                        {suggestion}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+                <form
+                  onSubmit={(e: FormEvent<HTMLFormElement>) => {
+                    e.preventDefault();
+                    if (inputValue.trim()) {
+                      handleAnswer(inputValue.trim());
+                    }
+                  }}
+                >
+                  <input
+                    name="answer"
+                    type="text"
+                    placeholder="Type your answer here..."
+                    className="w-full rounded-lg border p-2"
+                    autoFocus
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                  />
+                </form>
+              </div>
             )}
           </div>
         )}
