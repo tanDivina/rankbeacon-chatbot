@@ -92,6 +92,7 @@ export const verificationTokens = pgTable(
 export const chat = pgTable('chat', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => user.id),
+  visibility: text('visibility').default('private').notNull(),
   title: text('title'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
