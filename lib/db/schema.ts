@@ -142,3 +142,27 @@ export const document = pgTable('document', {
 
 // Export Chat type alias for compatibility
 export type Chat = typeof chat.$inferSelect;
+
+// Vote table for message voting
+export const vote = pgTable('vote', {
+  id: text('id').primaryKey(),
+  messageId: text('message_id').notNull().references(() => message.id),
+  userId: text('user_id').notNull().references(() => user.id),
+  type: text('type').notNull(), // 'up' or 'down'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Document table for file storage
+export const document = pgTable('document', {
+  id: text('id').primaryKey(),
+  chatId: text('chat_id').notNull().references(() => chat.id),
+  userId: text('user_id').notNull().references(() => user.id),
+  title: text('title').notNull(),
+  content: text('content'),
+  url: text('url'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Export Chat type alias for compatibility
+export type Chat = typeof chat.$inferSelect;
