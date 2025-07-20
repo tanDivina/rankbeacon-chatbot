@@ -4,7 +4,7 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { db } from '@/lib/db';
-import { user } from '@/lib/db/schema';
+import { user, type UserTypeEnum } from '@/lib/db/schema';
 
 export const {
   handlers: { GET, POST },
@@ -25,6 +25,13 @@ export const {
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
+        // Fetch the full user data including type from database
+        const fullUser = await db.query.user.findFirst({
+          where: (users, { eq }) => eq(users.id, user.id),
+        });
+        if (fullUser) {
+          session.user.type = fullUser.type;
+        }
       }
       return session;
     },
@@ -32,7 +39,7 @@ export const {
 
   pages: {
     signIn: '/login',
-    error: '/login', // Add this - redirects auth errors to login page
+    error: '/login',
   },
   
   // Add cookie configuration to prevent PKCE issues
@@ -55,5 +62,5 @@ export const {
   },
 });
 
-// Export UserType for other files
-export type UserType = typeof user.$inferSelect;
+// Export UserType from schema
+export type UserType = UserTypeEnum;

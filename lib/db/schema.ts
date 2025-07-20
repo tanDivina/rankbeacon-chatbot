@@ -1,15 +1,18 @@
-// lib/db/schema.ts
-
-import type { AdapterAccount } from 'next-auth/adapters';
+import { InferSelectModel } from 'drizzle-orm';
 import {
   pgTable,
+  varchar,
   text,
   timestamp,
-  varchar,
-  boolean,
+  jsonb,
+  uuid,
   primaryKey,
   integer,
 } from 'drizzle-orm/pg-core';
+
+// Define user types
+export const userTypeEnum = ['guest', 'regular'] as const;
+export type UserTypeEnum = typeof userTypeEnum[number];
 
 // --- THIS IS THE CORRECTED USER TABLE DEFINITION ---
 export const user = pgTable('user', {
@@ -18,40 +21,26 @@ export const user = pgTable('user', {
     .$defaultFn(() => crypto.randomUUID()),
   name: text('name'),
   email: text('email').notNull(),
-  // emailVerified is now correctly placed inside the object
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
+  type: text('type', { enum: userTypeEnum }).notNull().default('regular'),
 });
 
-// --- Our Custom Profile Table ---
-export const profile = pgTable('profile', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
+export const session = pgTable('session', {
+  sessionToken: text('sessionToken').primaryKey(),
   userId: text('userId')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  name: varchar('name', { length: 255 }).notNull(),
-  isDefault: boolean('isDefault').notNull().default(false),
-  projectType: varchar('projectType', { length: 255 }).notNull(),
-  niche: varchar('niche', { length: 255 }).notNull(),
-  targetAudience: text('targetAudience').notNull(),
-  contentTypes: varchar('contentTypes', { length: 255 }).notNull(),
-  primaryGoal: varchar('primaryGoal', { length: 255 }).notNull(),
-  brandVoice: varchar('brandVoice', { length: 255 }).notNull(),
-  language: varchar('language', { length: 50 }).notNull().default('English'),
-  createdAt: timestamp('createdAt').notNull().defaultNow(),
-  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  expires: timestamp('expires', { mode: 'date' }).notNull(),
 });
 
-// --- NextAuth.js Required Tables ---
-export const accounts = pgTable(
+export const account = pgTable(
   'account',
   {
     userId: text('userId')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    type: text('type').$type<AdapterAccount['type']>().notNull(),
+    type: text('type').notNull(),
     provider: text('provider').notNull(),
     providerAccountId: text('providerAccountId').notNull(),
     refresh_token: text('refresh_token'),
@@ -69,79 +58,107 @@ export const accounts = pgTable(
   })
 );
 
-export const sessions = pgTable('session', {
-  sessionToken: text('sessionToken').primaryKey(),
-  userId: text('userId')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  expires: timestamp('expires', { mode: 'date' }).notNull(),
-});
-
-export const verificationTokens = pgTable(
+export const verificationToken = pgTable(
   'verificationToken',
   {
     identifier: text('identifier').notNull(),
     token: text('token').notNull(),
     expires: timestamp('expires', { mode: 'date' }).notNull(),
   },
-  (vt) => ({
-    compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
+  (verificationToken) => ({
+    compositePk: primaryKey({
+      columns: [verificationToken.identifier, verificationToken.token],
+    }),
   })
 );
-// Chat related tables
+
+export const authenticator = pgTable(
+  'authenticator',
+  {
+    credentialID: text('credentialID').notNull().unique(),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    providerAccountId: text('providerAccountId').notNull(),
+    credentialPublicKey: text('credentialPublicKey').notNull(),
+    counter: integer('counter').notNull(),
+    credentialDeviceType: text('credentialDeviceType').notNull(),
+    credentialBackedUp: boolean('credentialBackedUp').notNull(),
+    transports: text('transports'),
+  },
+  (authenticator) => ({
+    compositePK: primaryKey({
+      columns: [authenticator.userId, authenticator.credentialID],
+    }),
+  })
+);
+
 export const chat = pgTable('chat', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => user.id),
-  visibility: text('visibility').default('private').notNull(),
-  title: text('title'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  createdAt: timestamp('createdAt').notNull(),
+  messages: jsonb('messages').notNull(),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id),
+  title: text('title').notNull(),
 });
+
+export const document = pgTable(
+  'document',
+  {
+    id: uuid('id').notNull().defaultRandom(),
+    createdAt: timestamp('createdAt').notNull(),
+    title: text('title').notNull(),
+    content: text('content'),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id),
+  },
+  (table) => {
+    return {
+      pk: primaryKey({ columns: [table.id, table.createdAt] }),
+    };
+  }
+);
+
+export const suggestion = pgTable(
+  'suggestion',
+  {
+    id: uuid('id').notNull().defaultRandom(),
+    documentId: uuid('documentId').notNull(),
+    documentCreatedAt: timestamp('documentCreatedAt').notNull(),
+    originalText: text('originalText').notNull(),
+    suggestedText: text('suggestedText').notNull(),
+    description: text('description'),
+    isResolved: boolean('isResolved').notNull().default(false),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp('createdAt').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    documentRef: foreignKey({
+      columns: [table.documentId, table.documentCreatedAt],
+      foreignColumns: [document.id, document.createdAt],
+    }),
+  })
+);
 
 export const message = pgTable('message', {
-  id: text('id').primaryKey(),
-  chatId: text('chat_id').notNull().references(() => chat.id),
-  role: text('role').notNull(), // 'user' or 'assistant'
-  content: text('content').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  id: uuid('id').notNull().defaultRandom(),
+  chatId: uuid('chatId')
+    .notNull()
+    .references(() => chat.id),
+  role: varchar('role').notNull(),
+  content: jsonb('content').notNull(),
+  createdAt: timestamp('createdAt').notNull(),
 });
 
-export const stream = pgTable('stream', {
-  id: text('id').primaryKey(),
-  chatId: text('chat_id').notNull().references(() => chat.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+export type User = InferSelectModel<typeof user>;
+export type Chat = InferSelectModel<typeof chat>;
+export type Document = InferSelectModel<typeof document>;
+export type Suggestion = InferSelectModel<typeof suggestion>;
+export type Message = InferSelectModel<typeof message>;
 
-export const suggestion = pgTable('suggestion', {
-  id: text('id').primaryKey(),
-  chatId: text('chat_id').notNull().references(() => chat.id),
-  content: text('content').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
-
-// Vote table for message voting
-export const vote = pgTable('vote', {
-  id: text('id').primaryKey(),
-  messageId: text('message_id').notNull().references(() => message.id),
-  userId: text('user_id').notNull().references(() => user.id),
-  type: text('type').notNull(), // 'up' or 'down'
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
-
-// Document table for file storage
-export const document = pgTable('document', {
-  id: text('id').primaryKey(),
-  chatId: text('chat_id').notNull().references(() => chat.id),
-  userId: text('user_id').notNull().references(() => user.id),
-  title: text('title').notNull(),
-  content: text('content'),
-  url: text('url'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
-
-// Export Chat type alias for compatibility
-export type Chat = typeof chat.$inferSelect;
-
-// Vote table for message voting
+import { boolean, foreignKey } from 'drizzle-orm/pg-core';
