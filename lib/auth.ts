@@ -4,6 +4,7 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { db } from '@/lib/db';
+import { user } from '@/lib/db/schema';
 
 export const {
   handlers: { GET, POST },
@@ -53,3 +54,6 @@ export const {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 });
+
+// Export UserType for other files
+export type UserType = typeof user.$inferSelect;
