@@ -21,10 +21,10 @@ export const myProvider = isTestEnvironment
     })
   : customProvider({
       languageModels: {
-        'chat-model': google('gemini-3-flash-preview') as any,
-        'chat-model-reasoning': google('gemini-3-flash-preview') as any,
-        'title-model': google('gemini-3-flash-preview') as any,
-        'artifact-model': google('gemini-3-flash-preview') as any,
+        'chat-model': google('gemini-3.1-flash-lite') as any,
+        'chat-model-reasoning': google('gemini-3.1-flash-lite') as any,
+        'title-model': google('gemini-3.1-flash-lite') as any,
+        'artifact-model': google('gemini-3.1-flash-lite') as any,
       },
       imageModels: {
         'small-model': google.image('imagen-3.0-generate-002') as any,
