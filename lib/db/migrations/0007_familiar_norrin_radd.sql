@@ -86,15 +86,15 @@ CREATE TABLE IF NOT EXISTS "verificationToken" (
 	CONSTRAINT "verificationToken_identifier_token_pk" PRIMARY KEY("identifier","token")
 );
 --> statement-breakpoint
-DROP TABLE "Chat";--> statement-breakpoint
-DROP TABLE "Document";--> statement-breakpoint
-DROP TABLE "Message_v2";--> statement-breakpoint
-DROP TABLE "Message";--> statement-breakpoint
-DROP TABLE "Stream";--> statement-breakpoint
-DROP TABLE "Suggestion";--> statement-breakpoint
-DROP TABLE "User";--> statement-breakpoint
-DROP TABLE "Vote_v2";--> statement-breakpoint
-DROP TABLE "Vote";--> statement-breakpoint
+DROP TABLE IF EXISTS "Chat";--> statement-breakpoint
+DROP TABLE IF EXISTS "Document";--> statement-breakpoint
+DROP TABLE IF EXISTS "Message_v2";--> statement-breakpoint
+DROP TABLE IF EXISTS "Message";--> statement-breakpoint
+DROP TABLE IF EXISTS "Stream";--> statement-breakpoint
+DROP TABLE IF EXISTS "Suggestion";--> statement-breakpoint
+DROP TABLE IF EXISTS "User";--> statement-breakpoint
+DROP TABLE IF EXISTS "Vote_v2";--> statement-breakpoint
+DROP TABLE IF EXISTS "Vote";--> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "account" ADD CONSTRAINT "account_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION

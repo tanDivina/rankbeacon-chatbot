@@ -64,3 +64,19 @@ export const {
 
 // Export UserType from schema
 export type UserType = UserTypeEnum;
+
+import { type DefaultSession } from 'next-auth';
+
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id: string;
+      type: UserTypeEnum;
+    } & DefaultSession['user'];
+  }
+
+  interface User {
+    type?: UserTypeEnum;
+  }
+}
+

@@ -1,9 +1,7 @@
 import {
   customProvider,
-  extractReasoningMiddleware,
-  wrapLanguageModel,
 } from 'ai';
-import { xai } from '@ai-sdk/xai';
+import { google } from '@ai-sdk/google';
 import {
   artifactModel,
   chatModel,
@@ -23,15 +21,12 @@ export const myProvider = isTestEnvironment
     })
   : customProvider({
       languageModels: {
-        'chat-model': xai('grok-2-vision-1212'),
-        'chat-model-reasoning': wrapLanguageModel({
-          model: xai('grok-3-mini-beta'),
-          middleware: extractReasoningMiddleware({ tagName: 'think' }),
-        }),
-        'title-model': xai('grok-2-1212'),
-        'artifact-model': xai('grok-2-1212'),
+        'chat-model': google('gemini-3-flash-preview') as any,
+        'chat-model-reasoning': google('gemini-3-flash-preview') as any,
+        'title-model': google('gemini-3-flash-preview') as any,
+        'artifact-model': google('gemini-3-flash-preview') as any,
       },
       imageModels: {
-        'small-model': xai.imageModel('grok-2-image'),
+        'small-model': google.image('imagen-3.0-generate-002') as any,
       },
     });

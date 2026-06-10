@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: process.env.GROQ_API_KEY || 'dummy-key-for-build',
 });
 
 const systemPrompt = `
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Validation API error:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: (error as any).message || 'Internal Server Error' },
       { status: 500 }
     );
   }

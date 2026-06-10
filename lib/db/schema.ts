@@ -8,6 +8,8 @@ import {
   uuid,
   primaryKey,
   integer,
+  boolean,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 
 // Define user types
@@ -23,6 +25,7 @@ export const user = pgTable('user', {
   email: text('email').notNull(),
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
+  password: text('password'),
   type: text('type', { enum: userTypeEnum }).notNull().default('regular'),
 });
 
@@ -96,11 +99,14 @@ export const authenticator = pgTable(
 export const chat = pgTable('chat', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   createdAt: timestamp('createdAt').notNull(),
-  messages: jsonb('messages').notNull(),
+  messages: jsonb('messages').notNull().default([]),
   userId: text('userId')
     .notNull()
     .references(() => user.id),
   title: text('title').notNull(),
+  visibility: text('visibility', { enum: ['public', 'private'] })
+    .notNull()
+    .default('private'),
 });
 
 export const document = pgTable(
@@ -109,6 +115,7 @@ export const document = pgTable(
     id: uuid('id').notNull().defaultRandom(),
     createdAt: timestamp('createdAt').notNull(),
     title: text('title').notNull(),
+    kind: text('kind', { enum: ['text', 'code', 'image', 'sheet'] }).notNull(),
     content: text('content'),
     userId: text('userId')
       .notNull()
@@ -151,8 +158,50 @@ export const message = pgTable('message', {
     .notNull()
     .references(() => chat.id),
   role: varchar('role').notNull(),
-  content: jsonb('content').notNull(),
+  parts: jsonb('content').notNull(),
   createdAt: timestamp('createdAt').notNull(),
+});
+
+export const vote = pgTable(
+  'vote',
+  {
+    chatId: uuid('chatId')
+      .notNull()
+      .references(() => chat.id),
+    messageId: uuid('messageId')
+      .notNull()
+      .references(() => message.id),
+    isUpvoted: boolean('isUpvoted').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.chatId, table.messageId] }),
+  })
+);
+
+export const stream = pgTable('stream', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  chatId: uuid('chatId')
+    .notNull()
+    .references(() => chat.id),
+  createdAt: timestamp('createdAt').notNull(),
+});
+
+export const profile = pgTable('profile', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id),
+  name: text('name').notNull(),
+  isDefault: boolean('isDefault').notNull().default(false),
+  projectType: text('projectType'),
+  niche: text('niche'),
+  targetAudience: text('targetAudience'),
+  contentTypes: text('contentTypes'),
+  primaryGoal: text('primaryGoal'),
+  brandVoice: text('brandVoice'),
+  language: text('language'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt'),
 });
 
 export type User = InferSelectModel<typeof user>;
@@ -160,5 +209,9 @@ export type Chat = InferSelectModel<typeof chat>;
 export type Document = InferSelectModel<typeof document>;
 export type Suggestion = InferSelectModel<typeof suggestion>;
 export type Message = InferSelectModel<typeof message>;
+export type DBMessage = Message;
+export type Vote = InferSelectModel<typeof vote>;
+export type Stream = InferSelectModel<typeof stream>;
+export type Profile = InferSelectModel<typeof profile>;
 
-import { boolean, foreignKey } from 'drizzle-orm/pg-core';
+

@@ -5,7 +5,7 @@ export function middleware(request) {
   const { pathname } = request.nextUrl;
   
   // Allow these paths without auth check
-  const publicPaths = ['/login', '/api/auth', '/_next', '/favicon.ico'];
+  const publicPaths = ['/login', '/api/auth', '/_next', '/favicon.ico', '/google_chat.html'];
   
   // Check if it's a public path
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
