@@ -70,7 +70,7 @@ def get_projects(data: dict):
                 with open(os.path.join(structured_data_dir, filename), "r") as f:
                     project_data = json.load(f)
                     project_name = project_data.get("niche") or project_data.get("projectType") or f"Project"
-                    projects.append({"id": filename.split('.')[0], "name": project_name})
+                    projects.append({"id": filename.split('.')[0], "name": project_name, "data": project_data})
     return {"projects": projects}
 
 @app.function(
@@ -107,14 +107,16 @@ def chat(data: dict):
     
     try:
         with open(log_path, "r") as f: history = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError): history = []
+    except (FileNotFoundError, json.DecodeError): history = []
     
     if user_message.lower() == "start_new_project": history = []
     history.append({"role": "user", "content": user_message})
     
-    user_answers = [msg["content"] for msg in history if msg["role"] == "user"]
+    user_answers = [msg["content"] for msg in history if msg["role"] == "user" and msg["content"].lower() != "start_new_project"]
     current_step_index = len(user_answers)
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
+
+    returned_data = None
 
     if current_step_index == 1:
         system_prompt = f"You are Beacon, an assistant for RankBeacon. Greet the user, {first_name}, warmly and introduce yourself. Explain you're starting the intake process. Then, ask the first question: '{CONVERSATION_FLOW[0]['question']}'"
@@ -134,11 +136,16 @@ def chat(data: dict):
         summary_text = "\n".join(summary_lines)
         assistant_message = f"{reply_text} Thank you so much! That's everything I need. Here is a summary of your intake:\n\n{summary_text}\n\nYou can now access RankBeacon & start optimizing your content with our tools at the following link: [https://rankbeacon.dev/dashboard](https://rankbeacon.dev/dashboard). If you have any questions, reach out at dorien@rankbeacon.dev. Have a great day! 👋"
         with open(structured_path, "w") as f: json.dump(structured_data, f, indent=2)
+        returned_data = structured_data
 
     history.append({"role": "assistant", "content": assistant_message})
     with open(log_path, "w") as f: json.dump(history, f)
     volume.commit()
-    return {"reply": assistant_message}
+    
+    response_payload = {"reply": assistant_message}
+    if returned_data is not None:
+        response_payload["data"] = returned_data
+    return response_payload
 
 def _extract_structured_data(history: list) -> dict:
     structured_data = {}

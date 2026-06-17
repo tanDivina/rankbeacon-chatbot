@@ -471,6 +471,17 @@
                     data.projects.forEach(project => {
                         const li = document.createElement('li');
                         li.textContent = project.name;
+                        li.style.cursor = 'pointer';
+                        li.onclick = () => {
+                            let redirectUrl = "https://rankbeacon.dev/dashboard";
+                            let params = [];
+                            if (userName) params.push("name=" + encodeURIComponent(userName));
+                            if (project.data) {
+                                params.push("intake_data=" + encodeURIComponent(btoa(JSON.stringify(project.data))));
+                            }
+                            if (params.length > 0) redirectUrl += "?" + params.join("&");
+                            window.location.href = redirectUrl;
+                        };
                         projectList.appendChild(li);
                     });
                 } else {
@@ -551,7 +562,14 @@
                     renderOptions();
                 } else {
                     setTimeout(() => {
-                        window.location.href = "https://rankbeacon.dev/dashboard" + (userName ? "?name=" + encodeURIComponent(userName) : "");
+                        let redirectUrl = "https://rankbeacon.dev/dashboard";
+                        let params = [];
+                        if (userName) params.push("name=" + encodeURIComponent(userName));
+                        if (data.data) {
+                            params.push("intake_data=" + encodeURIComponent(btoa(JSON.stringify(data.data))));
+                        }
+                        if (params.length > 0) redirectUrl += "?" + params.join("&");
+                        window.location.href = redirectUrl;
                     }, 4000);
                 }
 
