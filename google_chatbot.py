@@ -132,7 +132,7 @@ def chat(data: dict):
         structured_data = _extract_structured_data(history)
         summary_lines = [f"**{key.replace('Type', ' Type').title()}**: {value}" for key, value in structured_data.items()]
         summary_text = "\n".join(summary_lines)
-        assistant_message = f"{reply_text} Thank you so much! That's everything I need. Here is a summary of your intake:\n\n{summary_text}\n\nYou can now access the RankBeacon & start optimizing your content with our tools at the following link: [https://rankbeacon.dev](https://rankbeacon.dev). If you have any questions, reach out at dorien@rankbeacon.dev. Have a great day! 👋"
+        assistant_message = f"{reply_text} Thank you so much! That's everything I need. Here is a summary of your intake:\n\n{summary_text}\n\nYou can now access RankBeacon & start optimizing your content with our tools at the following link: [https://rankbeacon.dev/dashboard](https://rankbeacon.dev/dashboard). If you have any questions, reach out at dorien@rankbeacon.dev. Have a great day! 👋"
         with open(structured_path, "w") as f: json.dump(structured_data, f, indent=2)
 
     history.append({"role": "assistant", "content": assistant_message})
@@ -142,7 +142,7 @@ def chat(data: dict):
 
 def _extract_structured_data(history: list) -> dict:
     structured_data = {}
-    user_answers = [msg["content"] for msg in history if msg["role"] == "user"]
+    user_answers = [msg["content"] for msg in history if msg["role"] == "user" and msg["content"].lower() != "start_new_project"]
     for i, key in enumerate(INTAKE_KEYS):
         if i < len(user_answers): structured_data[key] = user_answers[i]
         else: structured_data[key] = "N/A"

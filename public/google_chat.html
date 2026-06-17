@@ -135,6 +135,12 @@
             box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(212, 175, 55, 0.35);
         }
 
+        #chat-container {
+            display: none;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
         #messages {
             height: 480px;
             overflow-y: auto;
@@ -527,6 +533,10 @@
                 
                 if (!data.reply.includes("That's everything I need")) {
                     renderOptions();
+                } else {
+                    setTimeout(() => {
+                        window.location.href = "https://rankbeacon.dev/dashboard";
+                    }, 4000);
                 }
 
             } catch (error) {
