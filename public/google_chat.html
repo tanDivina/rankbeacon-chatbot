@@ -473,12 +473,24 @@
                         li.textContent = project.name;
                         li.style.cursor = 'pointer';
                         li.onclick = () => {
-                            let redirectUrl = "https://rankbeacon.dev/dashboard";
+                            let redirectUrl = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
+                                ? "http://localhost:5173/dashboard"
+                                : "https://rankbeacon.dev/dashboard";
                             let params = [];
+                            if (googleToken) params.push("token=" + googleToken);
                             if (userName) params.push("name=" + encodeURIComponent(userName));
-                            if (project.data) {
-                                params.push("intake_data=" + encodeURIComponent(btoa(JSON.stringify(project.data))));
-                            }
+                            
+                            const intakeObj = {
+                                projectType: project.projectType || project['project-type'] || (project.answers && (project.answers.projectType || project.answers['project-type'])) || '',
+                                niche: project.niche || (project.answers && project.answers.niche) || '',
+                                targetAudience: project.targetAudience || project['target-audience'] || (project.answers && (project.answers.targetAudience || project.answers['target-audience'])) || '',
+                                contentTypes: project.contentTypes || project['content-types'] || (project.answers && (project.answers.contentTypes || project.answers['content-types'])) || '',
+                                goals: project.goals || (project.answers && project.answers.goals) || '',
+                                voice: project.voice || (project.answers && project.answers.voice) || '',
+                                language: project.language || (project.answers && project.answers.language) || ''
+                            };
+                            params.push("intake_data=" + encodeURIComponent(btoa(JSON.stringify(intakeObj))));
+                            
                             if (params.length > 0) redirectUrl += "?" + params.join("&");
                             window.location.href = redirectUrl;
                         };
@@ -562,11 +574,14 @@
                     renderOptions();
                 } else {
                     setTimeout(() => {
-                        let redirectUrl = "https://rankbeacon.dev/dashboard";
+                        let redirectUrl = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
+                            ? "http://localhost:5173/dashboard"
+                            : "https://rankbeacon.dev/dashboard";
                         let params = [];
+                        if (googleToken) params.push("token=" + googleToken);
                         if (userName) params.push("name=" + encodeURIComponent(userName));
-                        if (data.data) {
-                            params.push("intake_data=" + encodeURIComponent(btoa(JSON.stringify(data.data))));
+                        if (answers) {
+                            params.push("intake_data=" + encodeURIComponent(btoa(JSON.stringify(answers))));
                         }
                         if (params.length > 0) redirectUrl += "?" + params.join("&");
                         window.location.href = redirectUrl;
